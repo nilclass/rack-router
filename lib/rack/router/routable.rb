@@ -30,8 +30,9 @@ class Rack::Router
 
     def call(env)
       env["rack_router.params"] ||= {}
-      
-      handle(Rack::Request.new(env), env)
+
+      ret = handle(Rack::Request.new(env), env)
+      handled?(ret) ? ret : (@app ? @app.call(env) : ret)
     end
 
     def url(name, params = {}, fallback = {})
@@ -43,16 +44,16 @@ class Rack::Router
       # Condition#generate will delete from the hash any params that it uses
       # that way, we can just append whatever is left to the query string
       parts = route.url(query_params, fallback)
-      
+
       url = ""
       if parts[0] || parts[1] || parts[2]
         url << (parts[0] || "http") << "://"
         url << parts[1]
         url << ":#{parts[2]}" if parts[2] && parts[2] != 80
       end
-      
+
       url << URI.escape(parts[3])
-      
+
       query_params.delete_if { |k, v| v.nil? }
 
       url << "?#{Rack::Utils.build_query(query_params)}" if query_params.any?
@@ -63,7 +64,7 @@ class Rack::Router
 
     def prepare_route(route)
       @routes << route
-      
+
       route.finalize(self)
 
       if route.name
